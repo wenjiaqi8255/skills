@@ -6,6 +6,7 @@
 
 | Skill | 用途 | 触发关键词 |
 |-------|------|-----------|
+| [zeabur-deploy-debug](./zeabur-deploy-debug.skill) | Zeabur 部署调试（Dockerfile、npm update 问题、日志分析） | "debug Zeabur", "deployment failed", "MODULE_NOT_FOUND", "npm update" |
 | [chatbot-stack](./chatbot-stack/) | 聊天机器人架构（AI 流式响应、会话管理、事件日志） | "build a chatbot", "chat API", "streaming AI" |
 | [cicd-setup](./cicd-setup/) | CI/CD 流水线配置（GitHub Actions + Cloudflare Pages） | "set up CI/CD", "configure GitHub Actions" |
 | [cloudflare-workers-react](./cloudflare-workers-react/) | Cloudflare Workers + React 开发 | "Cloudflare Workers", " Workers + React" |
@@ -69,6 +70,7 @@ skill-name/
 
 ## 更新日志
 
+- **2026-03-30**: 新增 zeabur-deploy-debug（Zeabur 部署调试）
 - **2026-03-24**: 新增 5 个 skills（chatbot-stack, cicd-setup, cloudflare-workers-react, share-image-generation, ui-debug）
 - **2026-01-25**: 初始 life-task-planning skill
 
