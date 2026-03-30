@@ -1,0 +1,109 @@
+# GitHub Actions CI Workflow for iOS/SwiftUI Projects
+# Copy this file to .github/workflows/ci.yml and replace <...> placeholders
+
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Find available versions: ls /Applications/ | grep Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+            SourcePackages/checkouts
+          # Replace <path-to-Package.resolved> with actual path
+          key: ${{ runner.os }}-spm-${{ hashFiles('<path-to-Package.resolved>') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Create gitignored files for CI
+        # Only include sections for files that are gitignored in your project
+        run: |
+          # === ENTITLEMENTS (if *.entitlements is gitignored) ===
+          # Replace <path>/<filename> with actual path
+          cat > <path>/<filename>.entitlements << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict/>
+          </plist>
+          EOF
+
+          # === STOREKIT (if *.storekit is gitignored) ===
+          # Replace <path>/<filename> and <bundle-id> with actual values
+          cat > <path>/<filename>.storekit << 'EOF'
+          {
+            "identifier" : "<bundle-id>.storekit",
+            "nonRenewableSubscriptions" : [],
+            "products" : [],
+            "subscriptionGroups" : [],
+            "version" : {"major" : 3, "minor" : 0}
+          }
+          EOF
+
+          # === INFO.PLIST (if Info.plist is gitignored) ===
+          # Replace <path> with actual path
+          cat > <path>/Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Run tests
+        # Replace <project> and <scheme> with actual values
+        run: |
+          set -o pipefail
+          DEST="$(xcrun simctl list devices available | grep -o 'iPhone [0-9]* Pro* Max*' | head -1)"
+          echo "Using destination: $DEST"
+          xcodebuild test \
+            -project <project>.xcodeproj \
+            -scheme <scheme> \
+            -destination "platform=iOS Simulator,name=$DEST" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            -skipPackagePluginValidation \
+            -resultBundlePath TestResults.xcresult \
+            2>&1 | tee build.log | xcpretty --color --report junit --output build-report.junit
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults.xcresult
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: build.log
