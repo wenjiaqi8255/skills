@@ -6,6 +6,7 @@
 
 | Skill | 用途 | 触发关键词 |
 |-------|------|-----------|
+| [credit-bar](./credit-bar/) | 个人品牌 credit bar 组件（编辑风格页脚 + 社交链接） | "add credit bar", "personal branding footer", "made by section" |
 | [ios-ci](./ios-ci/) | iOS GitHub Actions CI 配置（SPM 缓存、模拟器选择、gitignored 文件处理） | "set up CI for iOS", "GitHub Actions Xcode", "iOS test workflow" |
 | [zeabur-deploy-debug](./zeabur-deploy-debug.skill) | Zeabur 部署调试（Dockerfile、npm update 问题、日志分析） | "debug Zeabur", "deployment failed", "MODULE_NOT_FOUND", "npm update" |
 | [chatbot-stack](./chatbot-stack/) | 聊天机器人架构（AI 流式响应、会话管理、事件日志） | "build a chatbot", "chat API", "streaming AI" |
@@ -71,6 +72,7 @@ skill-name/
 
 ## 更新日志
 
+- **2026-03-31**: 新增 credit-bar（个人品牌 credit bar 组件）
 - **2026-03-30**: 新增 ios-ci（iOS GitHub Actions CI）、zeabur-deploy-debug（Zeabur 部署调试）
 - **2026-03-24**: 新增 5 个 skills（chatbot-stack, cicd-setup, cloudflare-workers-react, share-image-generation, ui-debug）
 - **2026-01-25**: 初始 life-task-planning skill
