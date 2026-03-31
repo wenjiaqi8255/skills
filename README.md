@@ -6,6 +6,7 @@
 
 | Skill | 用途 | 触发关键词 |
 |-------|------|-----------|
+| [github-pages-deploy](./github-pages-deploy/) | GitHub Pages 部署（Vite、React、CI/CD、404 修复） | "deploy to GitHub Pages", "GitHub Pages CI/CD", "fix 404 on GitHub Pages" |
 | [credit-bar](./credit-bar/) | 个人品牌 credit bar 组件（编辑风格页脚 + 社交链接） | "add credit bar", "personal branding footer", "made by section" |
 | [ios-ci](./ios-ci/) | iOS GitHub Actions CI 配置（SPM 缓存、模拟器选择、gitignored 文件处理） | "set up CI for iOS", "GitHub Actions Xcode", "iOS test workflow" |
 | [zeabur-deploy-debug](./zeabur-deploy-debug.skill) | Zeabur 部署调试（Dockerfile、npm update 问题、日志分析） | "debug Zeabur", "deployment failed", "MODULE_NOT_FOUND", "npm update" |
@@ -72,6 +73,7 @@ skill-name/
 
 ## 更新日志
 
+- **2026-04-01**: 新增 github-pages-deploy（GitHub Pages 部署）
 - **2026-03-31**: 新增 credit-bar（个人品牌 credit bar 组件）
 - **2026-03-30**: 新增 ios-ci（iOS GitHub Actions CI）、zeabur-deploy-debug（Zeabur 部署调试）
 - **2026-03-24**: 新增 5 个 skills（chatbot-stack, cicd-setup, cloudflare-workers-react, share-image-generation, ui-debug）
