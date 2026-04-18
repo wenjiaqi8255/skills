@@ -15,6 +15,7 @@
 | [cloudflare-workers-react](./cloudflare-workers-react/) | Cloudflare Workers + React 开发 | "Cloudflare Workers", " Workers + React" |
 | [share-image-generation](./share-image-generation/) | 社交分享图片生成（html2canvas + QR） | "share image", "capture DOM" |
 | [ui-debug](./ui-debug/) | UI/CSS 问题系统性调试 | "debug CSS", "UI bug", "layout issue" |
+| [cloudflare-workers-oauth](./cloudflare-workers-oauth/) | Google OAuth on Cloudflare Workers（Auth.js + Drizzle + D1 + Hono） | "Google OAuth", "Auth.js", "sign in", "session cookie", "requireAuth middleware" |
 | [life-task-planning](./life-task-planning/) | 生活/工作任务管理（backlog.md） | "更新任务", "add task", "review todos" |
 
 ## 使用方法
@@ -73,6 +74,7 @@ skill-name/
 
 ## 更新日志
 
+- **2026-04-18**: 新增 cloudflare-workers-oauth（Google OAuth on Cloudflare Workers）
 - **2026-04-01**: 新增 github-pages-deploy（GitHub Pages 部署）
 - **2026-03-31**: 新增 credit-bar（个人品牌 credit bar 组件）
 - **2026-03-30**: 新增 ios-ci（iOS GitHub Actions CI）、zeabur-deploy-debug（Zeabur 部署调试）
