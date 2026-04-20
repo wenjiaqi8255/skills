@@ -16,6 +16,7 @@
 | [share-image-generation](./share-image-generation/) | 社交分享图片生成（html2canvas + QR） | "share image", "capture DOM" |
 | [ui-debug](./ui-debug/) | UI/CSS 问题系统性调试 | "debug CSS", "UI bug", "layout issue" |
 | [cloudflare-workers-oauth](./cloudflare-workers-oauth/) | Google OAuth on Cloudflare Workers（Auth.js + Drizzle + D1 + Hono） | "Google OAuth", "Auth.js", "sign in", "session cookie", "requireAuth middleware" |
+| [supabase-mcp-oauth](./supabase-mcp-oauth/) | MCP Server + OAuth 2.1 on Supabase（PKCE relay、Apple/Google 登录、RLS） | "MCP server with OAuth", "Claude Desktop connect to Supabase", "MCP PKCE flow" |
 | [life-task-planning](./life-task-planning/) | 生活/工作任务管理（backlog.md） | "更新任务", "add task", "review todos" |
 
 ## 使用方法
@@ -74,6 +75,7 @@ skill-name/
 
 ## 更新日志
 
+- **2026-04-20**: 新增 supabase-mcp-oauth（MCP Server + OAuth 2.1 on Supabase Edge Functions）
 - **2026-04-18**: 新增 cloudflare-workers-oauth（Google OAuth on Cloudflare Workers）
 - **2026-04-01**: 新增 github-pages-deploy（GitHub Pages 部署）
 - **2026-03-31**: 新增 credit-bar（个人品牌 credit bar 组件）
