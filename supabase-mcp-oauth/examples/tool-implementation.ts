@@ -1,28 +1,32 @@
-// Example MCP Tool Implementation
-// Shows a complete tool: schema definition, handler, and service-layer call with RLS.
+// Example MCP Tool Implementation (Deno runtime — Supabase Edge Functions)
+// Shows dual-mode DB access: RLS (default) or admin (for identity-mapped users).
 
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
-
-// ── Schema (input validation) ──────────────────────────────────────
-
-const GetGoalSchema = z.object({
-  goal_id: z.string().uuid().describe('The goal ID to retrieve'),
-})
-
-// ── Service Layer ──────────────────────────────────────────────────
-// CRITICAL: Use createUserClient, NOT createClient(url, userToken).
-// See references/oauth-flow.md Pattern C for explanation.
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 function createUserClient(userToken: string) {
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${userToken}` } },
   })
 }
+
+function createAdminClient() {
+  return createClient(supabaseUrl, serviceRoleKey)
+}
+
+// ── Schema ──────────────────────────────────────────────────────────
+
+const GetGoalSchema = z.object({
+  goal_id: z.string().uuid().describe('The goal ID to retrieve'),
+})
+
+// ── Service Layer (Dual-Mode) ───────────────────────────────────────
+// canonicalUserId present → admin mode (service role + explicit user_id filter)
+// canonicalUserId absent  → RLS mode (user JWT, RLS enforces auth.uid() = user_id)
 
 interface GoalRow {
   id: string
@@ -32,32 +36,46 @@ interface GoalRow {
   is_deleted: boolean
 }
 
-async function getGoalById(userToken: string, goalId: string): Promise<GoalRow | null> {
-  const supabase = createUserClient(userToken)
+async function getGoalById(
+  userToken: string,
+  goalId: string,
+  canonicalUserId?: string,
+): Promise<GoalRow | null> {
+  const useAdmin = !!canonicalUserId
+  const supabase = useAdmin ? createAdminClient() : createUserClient(userToken)
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('goals')
     .select('*')
     .eq('id', goalId)
     .eq('is_deleted', false)
-    .single()
+
+  if (useAdmin) {
+    query = query.eq('user_id', canonicalUserId!)
+  }
+
+  const { data, error } = await query.single()
 
   if (error) {
-    if (error.code === 'PGRST116') return null // not found
+    if (error.code === 'PGRST116') return null
     throw error
   }
 
   return data as GoalRow
 }
 
-// ── Tool Handler ───────────────────────────────────────────────────
-// This is what gets registered in the tool registry.
+// ── Tool Context ────────────────────────────────────────────────────
+// The dispatcher provides canonicalUserId from the user identity mapping.
 
 interface ToolContext {
   userId: string
+  canonicalUserId: string
   token: string
   requestId: string
 }
+
+// ── Tool Handler ────────────────────────────────────────────────────
+// Returns { success, data } — the dispatcher wraps in MCP content format.
 
 export default {
   name: 'get_goal',
@@ -66,7 +84,11 @@ export default {
   scope: 'read:goals',
 
   async handler(args: z.infer<typeof GetGoalSchema>, context: ToolContext) {
-    const goal = await getGoalById(context.token, args.goal_id)
+    const goal = await getGoalById(
+      context.token,
+      args.goal_id,
+      context.canonicalUserId,
+    )
 
     if (!goal) {
       return {
@@ -78,25 +100,10 @@ export default {
     return {
       success: true,
       data: {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              id: goal.id,
-              title: goal.title,
-              vision: goal.selected_vision,
-            }, null, 2),
-          },
-        ],
+        id: goal.id,
+        title: goal.title,
+        vision: goal.selected_vision,
       },
     }
   },
 }
-
-// ── Registry Registration Pattern ──────────────────────────────────
-// In mcp/registry.ts, register the tool like this:
-//
-// import getGoal from '../tools/getGoal.ts'
-//
-// const toolRegistry = new ToolRegistry()
-// toolRegistry.register(getGoal)

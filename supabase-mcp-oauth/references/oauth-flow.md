@@ -145,6 +145,83 @@ async function verifyUser(token: string) {
 }
 ```
 
+### Pattern E: MCP tools/call Response Format
+
+MCP spec requires tool results wrapped in a `content` array. The **dispatcher** (not tool handlers) does this wrapping.
+
+```typescript
+// In dispatcher.ts — handles the wrapping
+return {
+  jsonrpc: '2.0',
+  id,
+  result: {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify(result.data),
+    }],
+  },
+}
+
+// Tool handlers return plain data objects
+return {
+  success: true,
+  data: { goals: [...], count: 5 },
+}
+```
+
+**Common mistake**: Wrapping the content array in the tool handler AND in the dispatcher causes double-wrapping. Do it in ONE place only — the dispatcher is the right place.
+
+### Pattern F: User Identity Mapping (Apple Sign In)
+
+**Problem**: Apple "Sign in with Apple" generates a unique `sub` per app registration. The iOS native app (bundle ID) and browser OAuth (Service ID) use different Apple registrations, creating two different `auth.users` records for the same real person.
+
+**Solution**: A `user_id_aliases` table maps OAuth user IDs to the canonical (app) user.
+
+```typescript
+// UserIdentityService.ts
+export async function resolveCanonicalUser(oauthUserId: string): Promise<string> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('user_id_aliases')
+    .select('canonical_user_id')
+    .eq('oauth_user_id', oauthUserId)
+    .single()
+  if (error || !data) return oauthUserId  // No alias = same user
+  return data.canonical_user_id
+}
+
+// In verifyUser():
+const canonicalUserId = await resolveCanonicalUser(user.id)
+return { userId: user.id, canonicalUserId, scopes, resolvedToken: token }
+```
+
+See [references/db-schema.md](db-schema.md) for the SQL schema.
+
+### Pattern G: Dual-Mode DB Access
+
+Service functions support two modes: **RLS mode** (default) and **admin mode** (for identity-mapped users).
+
+```typescript
+export async function getGoals(userToken: string, canonicalUserId?: string): Promise<Goal[]> {
+  const useAdmin = !!canonicalUserId
+  const supabase = useAdmin ? createAdminClient() : createUserClient(userToken)
+
+  let query = supabase.from('goals').select('*').eq('is_deleted', false)
+
+  if (useAdmin) {
+    query = query.eq('user_id', canonicalUserId!)  // Explicit filter replaces RLS
+  }
+
+  return (await query.order('created_at', { ascending: false })).data as Goal[]
+}
+```
+
+**When to use each mode:**
+- **RLS mode** (no `canonicalUserId`): Token user == data owner. RLS enforces `auth.uid() = user_id`.
+- **Admin mode** (with `canonicalUserId`): Token user != data owner (OAuth alias). Service role bypasses RLS; explicit `user_id` filter ensures correct scoping.
+
+See [examples/tool-implementation.ts](../examples/tool-implementation.ts) for a complete working example.
+
 ## Common Pitfalls
 
 1. **createClient(url, jwt)** — The 2nd arg is `apikey`, NOT the user JWT. JWT goes in `Authorization` header.
@@ -152,3 +229,5 @@ async function verifyUser(token: string) {
 3. **Missing `refresh_token`** — Must store Supabase refresh_token in auth code row for the token endpoint to return it.
 4. **Missing PKCE validation** — The token endpoint MUST verify `code_verifier` against stored `code_challenge` using SHA-256.
 5. **Stale cached auth** — After deploying fixes, MCP clients may cache old tokens. Retry or clear MCP auth.
+6. **Double content wrapping** — Both handler and dispatcher wrap MCP content. Only wrap in dispatcher (Pattern E).
+7. **Admin queries without user_id filter** — Admin mode bypasses RLS. Always add explicit `.eq('user_id', canonicalUserId!)` to prevent data leakage.
