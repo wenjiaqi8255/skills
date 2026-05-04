@@ -36,8 +36,12 @@ Complete reference for all Supabase Edge Functions in the MCP + OAuth stack.
 async function verifyUser(token: string) {
   const supabase = createClient(SUPABASE_URL, ANON_KEY)  // NOT user JWT
   const { data: { user }, error } = await supabase.auth.getUser(token)
-  if (error || !user) return null
-  return { userId: user.id, scopes: /* default to all */, resolvedToken: token }
+  if (!error && user) {
+    return { userId: user.id, scopes: /* default to all */, resolvedToken: token }
+  }
+  // JWT expired — attempt auto-refresh using stored refresh token
+  // See Pattern H in oauth-flow.md
+  return await refreshExpiredToken(token)
 }
 ```
 
@@ -132,6 +136,8 @@ Validates redirect URIs: HTTPS required unless localhost/127.0.0.1 or custom sch
 - Verifies PKCE: SHA-256(`code_verifier`) must match stored `code_challenge`
 - Verifies `redirect_uri` matches
 - Returns stored Supabase JWT as `access_token`
+
+**CRITICAL**: Do NOT call `refreshSession` in this handler. The `session_access_token` stored by `oauth-authorize` is FRESH (obtained seconds ago via PKCE exchange). The refresh token from that exchange is already consumed by GoTrue's single-use token policy. Calling `refreshSession` will always fail.
 
 ### refresh_token
 - Looks up stored refresh token

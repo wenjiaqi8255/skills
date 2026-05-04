@@ -231,3 +231,6 @@ See [examples/tool-implementation.ts](../examples/tool-implementation.ts) for a 
 5. **Stale cached auth** — After deploying fixes, MCP clients may cache old tokens. Retry or clear MCP auth.
 6. **Double content wrapping** — Both handler and dispatcher wrap MCP content. Only wrap in dispatcher (Pattern E).
 7. **Admin queries without user_id filter** — Admin mode bypasses RLS. Always add explicit `.eq('user_id', canonicalUserId!)` to prevent data leakage.
+8. **GoTrue single-use refresh tokens** — After PKCE exchange in oauth-authorize, the refresh token is consumed. Never call `refreshSession` with it in oauth-token's auth code handler. Return the stored JWT directly.
+9. **Deleting refresh tokens by user_id only** — This kills tokens for ALL connected MCP clients. Always scope to `user_id + client_id`.
+10. **Diagnosing from oauth_authorization_codes** — Rows are deleted after use. Use `oauth_refresh_tokens` or `oauth_sessions` for debugging instead.

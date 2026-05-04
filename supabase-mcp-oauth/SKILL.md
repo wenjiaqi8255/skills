@@ -1,6 +1,6 @@
 ---
 name: supabase-mcp-oauth
-version: "1.1.0"
+version: "1.2.0"
 description: >
   This skill should be used when the user asks to "build MCP server on Supabase",
   "add MCP to my Supabase app", "MCP with OAuth", "Claude Desktop connect to Supabase",
@@ -132,6 +132,94 @@ Apple "Sign in with Apple" generates a unique `sub` per app registration. iOS na
 
 Service functions support two modes: **RLS mode** (default, token user == data owner) and **admin mode** (with `canonicalUserId`, token user != data owner). Admin mode uses service role key with explicit `user_id` filter to replace RLS. See [references/oauth-flow.md](references/oauth-flow.md#pattern-g) and [examples/tool-implementation.ts](examples/tool-implementation.ts).
 
+### Pattern H: JWT Auto-Refresh in verifyUser
+
+When a JWT expires between sessions, the MCP server can transparently refresh it using the stored refresh token. This prevents 401 errors that force re-authentication.
+
+```typescript
+// mcp-server/index.ts — verifyUser with auto-refresh fallback
+async function verifyUser(token: string) {
+  const supabase = createClient(SUPABASE_URL, ANON_KEY)
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (!error && user) {
+    return { userId: user.id, scopes: /* ... */, resolvedToken: token }
+  }
+  // JWT expired — attempt auto-refresh
+  return await refreshExpiredToken(token)
+}
+
+async function refreshExpiredToken(expiredToken: string) {
+  // 1. Extract user_id from expired JWT payload (no signature validation needed)
+  const payload = JSON.parse(atob(expiredToken.split('.')[1]))
+  if (payload.exp * 1000 > Date.now()) return null  // Not actually expired
+  const userId = payload.sub
+
+  // 2. Look up stored refresh token for this user
+  const supabase = createAdminClient()
+  const { data } = await supabase.from('oauth_refresh_tokens')
+    .select('token, scopes, client_id')
+    .eq('user_id', userId).gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false }).limit(1).single()
+
+  // 3. Refresh session via Supabase Auth (MUST use anon-key client)
+  const anonClient = createClient(SUPABASE_URL, ANON_KEY)
+  const { data: refreshData } = await anonClient.auth.refreshSession({
+    refreshToken: data.token,
+  })
+
+  // 4. Rotate stored refresh token
+  await supabase.from('oauth_refresh_tokens').delete().eq('token', data.token)
+  await supabase.from('oauth_refresh_tokens').insert({
+    token: refreshData.session.refresh_token,
+    user_id: userId, client_id: data.client_id, scopes: data.scopes,
+    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  })
+
+  return { userId, scopes: /* ... */, resolvedToken: refreshData.session.access_token }
+}
+```
+
+**Why this matters**: MCP clients (Claude Code, Claude Desktop) cache tokens. When a JWT expires after 1 hour, the next tool call fails with 401. Auto-refresh makes this transparent — no re-authentication needed.
+
+### Pattern I: Supabase GoTrue Single-Use Refresh Token Trap
+
+Supabase GoTrue refresh tokens are **single-use**. After PKCE exchange in `oauth-authorize`, the refresh token from that exchange is already consumed. Calling `refreshSession` with it in `oauth-token` will **always fail**.
+
+```
+oauth-authorize:
+  PKCE exchange → { access_token, refresh_token }  ← token is CONSUMED here
+  Store both in DB
+
+oauth-token (authorization_code grant):
+  ❌ WRONG: refreshSession(stored_refresh_token)  ← always fails, token already consumed
+  ✅ CORRECT: Return stored access_token directly  ← it's FRESH (seconds old)
+```
+
+**Rule**: In `oauth-token`'s `authorization_code` handler, return `codeData.session_access_token` directly. The token was obtained seconds ago in `oauth-authorize` — it is NOT stale. Only `oauth-token`'s `refresh_token` grant handler should call `refreshSession`.
+
+### Pattern J: Client-Scoped Refresh Token Rotation
+
+When rotating refresh tokens, delete by **both** `user_id` AND `client_id` — never by `user_id` alone. Deleting by `user_id` alone kills refresh tokens for ALL MCP clients connected to that user.
+
+```typescript
+// ❌ WRONG — kills tokens for ALL clients
+await supabase.from('oauth_refresh_tokens').delete().eq('user_id', userId)
+
+// ✅ CORRECT — scoped to specific client
+await supabase.from('oauth_refresh_tokens').delete()
+  .eq('user_id', userId).eq('client_id', clientId)
+```
+
+Also add cross-client validation in `refresh_token` grant:
+```typescript
+const { data: tokenData } = await supabase.from('oauth_refresh_tokens')
+  .select('client_id, scopes').eq('token', body.refresh_token).single()
+
+if (tokenData?.client_id && tokenData.client_id !== body.client_id) {
+  return { error: { error: 'invalid_client', error_description: 'Token belongs to different client' } }
+}
+```
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
@@ -146,6 +234,10 @@ Service functions support two modes: **RLS mode** (default, token user == data o
 | 401 loop after deploy | MCP client cached stale auth | Clear MCP auth or retry connection |
 | Double content wrapping | Both handler and dispatcher wrap content | Only wrap in dispatcher (Pattern E) |
 | Admin queries return all users' data | Missing explicit `user_id` filter | Always add `.eq('user_id', canonicalUserId!)` in admin mode |
+| 401 "token expired" on fresh auth | `refreshSession` consumed single-use token in oauth-token | Pattern I: Return stored JWT directly, don't call refreshSession |
+| 401 after JWT expires (>1hr) | No auto-refresh mechanism | Pattern H: Add verifyUser auto-refresh fallback |
+| Other MCP clients lose access after re-auth | Refresh token deleted by user_id, not client_id | Pattern J: Scope deletion to user_id + client_id |
+| `oauth_authorization_codes` table empty | Rows are one-time-use, deleted after exchange | Use `oauth_refresh_tokens` / `oauth_sessions` for diagnosis |
 
 ## Resources
 
