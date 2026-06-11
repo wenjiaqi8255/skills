@@ -1,0 +1,36 @@
+{
+  "$schema": "https://skills.sh/schema.json",
+  "groupings": [
+    {
+      "title": "Deployment & CI/CD",
+      "description": "Deployment, CI/CD, and DevOps skills",
+      "skills": ["github-pages-deploy", "cicd-setup", "zeabur-deploy-debug"]
+    },
+    {
+      "title": "Cloud & Auth",
+      "description": "Cloud platforms, OAuth, and authentication",
+      "skills": ["cloudflare-workers-react", "cloudflare-workers-oauth", "supabase-mcp-oauth"]
+    },
+    {
+      "title": "Frontend & UI",
+      "description": "Frontend development and UI debugging",
+      "skills": ["ui-debug", "credit-bar", "share-image-generation"]
+    },
+    {
+      "title": "Mobile",
+      "description": "iOS development and CI",
+      "skills": ["ios-ci"]
+    },
+    {
+      "title": "Full Stack",
+      "description": "Full stack application development",
+      "skills": ["chatbot-stack"]
+    },
+    {
+      "title": "Productivity",
+      "description": "Task management and planning",
+      "skills": ["life-task-planning"]
+    }
+  ],
+  "notGrouped": "bottom"
+}
